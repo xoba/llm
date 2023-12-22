@@ -46,7 +46,7 @@ type CompletionRequest struct {
 	Messages  []openai.ChatCompletionMessage
 }
 
-func Complete(c OpenAIClient, r CompletionRequest) (*CompletionResponse, error) {
+func Complete(c OpenAI, r CompletionRequest) (*CompletionResponse, error) {
 	var model string
 	switch r.Model {
 	case DefaultModel:

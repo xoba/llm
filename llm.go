@@ -38,12 +38,8 @@ func (r Response[T]) String() string {
 	return string(buf)
 }
 
-func Ask[ANSWER any](q Question[ANSWER]) (Response[ANSWER], error) {
+func Ask[ANSWER any](c client.Interface, q Question[ANSWER]) (Response[ANSWER], error) {
 	var zero Response[ANSWER]
-	c, err := client.NewDefaultClient()
-	if err != nil {
-		return zero, err
-	}
 	var messages []openai.ChatCompletionMessage
 	messages = append(messages, openai.ChatCompletionMessage{
 		Role:    "system",

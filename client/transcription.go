@@ -16,7 +16,7 @@ type AVFile struct {
 }
 
 // transcribes the audio of audio or video files
-func TranscribeAV(c OpenAIClient, f AVFile) (string, error) {
+func TranscribeAV(c OpenAI, f AVFile) (string, error) {
 	validWhisperExtensions := map[string]bool{
 		".m4a":  true,
 		".mp3":  true,

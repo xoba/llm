@@ -9,13 +9,13 @@ import (
 	"github.com/sashabaranov/go-openai"
 )
 
-type Client interface {
+type Interface interface {
 	TranscribeAV(AVFile) (string, error)
 	Complete(CompletionRequest) (*CompletionResponse, error)
-	OpenAIClient
+	OpenAI
 }
 
-type OpenAIClient interface {
+type OpenAI interface {
 	CreateChatCompletion(context.Context, openai.ChatCompletionRequest) (openai.ChatCompletionResponse, error)
 	CreateChatCompletionStream(context.Context, openai.ChatCompletionRequest) (*openai.ChatCompletionStream, error)
 	CreateTranscription(context.Context, openai.AudioRequest) (openai.AudioResponse, error)
@@ -35,17 +35,17 @@ func (c client) Complete(r CompletionRequest) (*CompletionResponse, error) {
 	return Complete(c, r)
 }
 
-func NewClient(key string) (Client, error) {
+func New(key string) (Interface, error) {
 	return client{openai.NewClient(strings.TrimSpace(key))}, nil
 }
 
 // key via openai env var, or file openai.txt
-func NewDefaultClient() (Client, error) {
+func NewDefault() (Interface, error) {
 	key, err := loadKey()
 	if err != nil {
 		return nil, err
 	}
-	return NewClient(key)
+	return New(key)
 }
 
 func loadKey() (string, error) {
