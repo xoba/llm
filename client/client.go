@@ -10,7 +10,7 @@ import (
 )
 
 type Interface interface {
-	TranscribeAV(AVFile) (string, error)
+	TranscribeAV(TranscriptionRequest) (string, error)
 	Complete(CompletionRequest) (*CompletionResponse, error)
 	OpenAI
 }
@@ -27,8 +27,13 @@ type client struct {
 	*openai.Client
 }
 
-func (c client) TranscribeAV(f AVFile) (string, error) {
-	return TranscribeAV(c, f)
+type TranscriptionRequest struct {
+	Prompt string
+	File   AVFile
+}
+
+func (c client) TranscribeAV(r TranscriptionRequest) (string, error) {
+	return TranscribeAV(c, r)
 }
 
 func (c client) Complete(r CompletionRequest) (*CompletionResponse, error) {

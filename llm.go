@@ -55,9 +55,8 @@ func Ask[ANSWER any](c client.Interface, q Question[ANSWER]) (Response[ANSWER], 
 	for _, d := range q.Files {
 		switch d.ContentType {
 		case "audio/mp3", "audio/mp4", "audio/mpeg", "audio/wav", "audio/x-wav", "audio/webm", "video/mp4", "video/mpeg", "video/webm":
-			txt, err := c.TranscribeAV(client.AVFile{
-				ContentType: d.ContentType,
-				Content:     d.Content,
+			txt, err := c.TranscribeAV(client.TranscriptionRequest{
+				File: client.AVFile{ContentType: d.ContentType, Content: d.Content},
 			})
 			if err != nil {
 				return zero, err

@@ -16,7 +16,7 @@ type AVFile struct {
 }
 
 // transcribes the audio of audio or video files
-func TranscribeAV(c OpenAI, f AVFile) (string, error) {
+func TranscribeAV(c OpenAI, r TranscriptionRequest) (string, error) {
 	validWhisperExtensions := map[string]bool{
 		".m4a":  true,
 		".mp3":  true,
@@ -26,7 +26,7 @@ func TranscribeAV(c OpenAI, f AVFile) (string, error) {
 		".wav":  true,
 		".mpeg": true,
 	}
-	exts, err := mime.ExtensionsByType(f.ContentType)
+	exts, err := mime.ExtensionsByType(r.File.ContentType)
 	if err != nil {
 		return "", err
 	}
@@ -38,12 +38,13 @@ func TranscribeAV(c OpenAI, f AVFile) (string, error) {
 		}
 	}
 	if len(fileExtension) == 0 {
-		return "", fmt.Errorf("no file extension found for content type %q", f.ContentType)
+		return "", fmt.Errorf("no file extension found for content type %q", r.File.ContentType)
 	}
 	t, err := c.CreateTranscription(context.Background(), openai.AudioRequest{
 		Model:       openai.Whisper1,
 		FilePath:    uuid.NewString() + fileExtension, // just needed for the extension
-		Reader:      bytes.NewReader(f.Content),
+		Prompt:      r.Prompt,
+		Reader:      bytes.NewReader(r.File.Content),
 		Temperature: 1,
 	})
 	if err != nil {
