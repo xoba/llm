@@ -82,7 +82,10 @@ func Ask[ANSWER any](c client.Interface, q Question[ANSWER]) (Response[ANSWER], 
 					string(txt),
 				),
 			})
-		case "text/plain", "text/html", "text/markdown", "text/csv", "text/tab-separated-values", "text/rtf", "text/richtext", "text/xml", "text/yaml", "text/x-yaml", "text/x-markdown", "text/x-rst", "text/x-org":
+		case "application/json",
+			"text/plain", "text/html", "text/markdown", "text/csv", "text/xml", "text/rtf",
+			"text/tab-separated-values", "text/richtext",
+			"text/yaml", "text/x-yaml", "text/x-markdown", "text/x-rst", "text/x-org":
 			messages = append(messages, openai.ChatCompletionMessage{
 				Role: "system",
 				Content: fmt.Sprintf(
