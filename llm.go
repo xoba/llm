@@ -94,7 +94,7 @@ func Ask[ANSWER any](c client.Interface, q Question[ANSWER]) (Response[ANSWER], 
 		case "image/png", "image/jpeg", "image/webp", "image/gif":
 			whichModel = client.GPT4Vision
 			responseFormat = client.NoneSpecified // vision has no format at all
-			maxTokens = 1000                      // vision defaults to few output tokens
+			maxTokens = 4096                      // specify, since vision defaults to few output tokens
 			messages = append(messages, openai.ChatCompletionMessage{
 				Role: "system",
 				MultiContent: []openai.ChatMessagePart{
@@ -181,7 +181,7 @@ func Ask[ANSWER any](c client.Interface, q Question[ANSWER]) (Response[ANSWER], 
 		d.DisallowUnknownFields()
 		var parsedResponse Response[ANSWER]
 		if err := d.Decode(&parsedResponse); err != nil {
-			log.Printf("error decoding: %v", err)
+			log.Printf("error decoding, going to potentially retry: %v", err)
 			errs = append(errs, err)
 			messages = append(messages, openai.ChatCompletionMessage{
 				Role:    "user",
