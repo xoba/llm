@@ -5,7 +5,7 @@ go 1.22rc1
 require (
 	github.com/google/uuid v1.5.0
 	github.com/invopop/jsonschema v0.12.0
-	github.com/sashabaranov/go-openai v1.17.9
+	github.com/sashabaranov/go-openai v1.18.2
 	github.com/vincent-petithory/dataurl v1.0.0
 )
 

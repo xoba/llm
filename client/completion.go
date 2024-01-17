@@ -13,9 +13,19 @@ import (
 	"github.com/sashabaranov/go-openai"
 )
 
+type CompletionRequest struct {
+	Model     ModelName
+	Format    ResponseFormat
+	MaxTokens int       // 0 means no limit, except for GPT4Vision, which has a small default limit
+	Stream    io.Writer // if nil, then no streaming
+	Tools     []openai.Tool
+	Messages  []openai.ChatCompletionMessage
+}
+
 type CompletionResponse struct {
 	FinishReason string
 	Content      string
+	FunctionCall *FunctionCall
 }
 
 //go:generate stringer -type=ResponseFormat
@@ -38,14 +48,6 @@ const (
 	GPT4Vision
 )
 
-type CompletionRequest struct {
-	Model     ModelName
-	Format    ResponseFormat
-	MaxTokens int       // 0 means no limit, except for GPT4Vision, which has a small default limit
-	Stream    io.Writer // if nil, then no streaming
-	Messages  []openai.ChatCompletionMessage
-}
-
 func Complete(c OpenAI, r CompletionRequest) (*CompletionResponse, error) {
 	var model string
 	switch r.Model {
@@ -64,6 +66,7 @@ func Complete(c OpenAI, r CompletionRequest) (*CompletionResponse, error) {
 		MaxTokens:   r.MaxTokens,
 		Temperature: 1.0,
 		TopP:        1,
+		Tools:       r.Tools,
 	}
 	switch r.Format {
 	case NoneSpecified:
@@ -79,6 +82,7 @@ func Complete(c OpenAI, r CompletionRequest) (*CompletionResponse, error) {
 		return nil, fmt.Errorf("unknown format: %d", r.Format)
 	}
 	if r.Stream == nil {
+		// TODO: need to handle functions here
 		resp, err := c.CreateChatCompletion(context.Background(), req)
 		if err != nil {
 			return nil, err
@@ -93,11 +97,16 @@ func Complete(c OpenAI, r CompletionRequest) (*CompletionResponse, error) {
 		req.Stream = true
 		resp, err := c.CreateChatCompletionStream(context.Background(), req)
 		if err != nil {
+			buf, _ := json.MarshalIndent(req, "", "  ")
+			fmt.Println(string(buf))
 			return nil, err
 		}
 		defer resp.Close()
-		q := new(bytes.Buffer)
-		out := io.MultiWriter(r.Stream, q)
+		content := new(bytes.Buffer)
+		funcs := new(bytes.Buffer)
+		var funcName, callID string
+		contentW := io.MultiWriter(r.Stream, content)
+		funcsW := io.MultiWriter(r.Stream, funcs)
 		var finishReason string
 		for {
 			t, err := resp.Recv()
@@ -125,12 +134,38 @@ func Complete(c OpenAI, r CompletionRequest) (*CompletionResponse, error) {
 			}
 			firstChoice := choices[0]
 			finishReason = string(firstChoice.FinishReason)
-			fmt.Fprint(out, firstChoice.Delta.Content)
+			fmt.Fprint(contentW, firstChoice.Delta.Content)
+			if len(firstChoice.Delta.ToolCalls) > 0 {
+				first := firstChoice.Delta.ToolCalls[0]
+				if len(first.ID) > 0 {
+					callID = first.ID
+				}
+				if first.Type == "function" && len(first.Function.Name) > 0 {
+					fmt.Printf("function: %s\nparameters: ", first.Function.Name)
+					funcName = first.Function.Name
+				}
+				fmt.Fprintf(funcsW, first.Function.Arguments)
+			}
 		}
-		fmt.Fprintln(out)
+		fmt.Fprintln(contentW)
+		var fc *FunctionCall
+		if len(funcName) > 0 {
+			fc = &FunctionCall{
+				ID:        callID,
+				Name:      funcName,
+				Arguments: funcs.String(),
+			}
+		}
 		return &CompletionResponse{
 			FinishReason: finishReason,
-			Content:      q.String(),
+			Content:      content.String(),
+			FunctionCall: fc,
 		}, nil
 	}
+}
+
+type FunctionCall struct {
+	ID        string
+	Name      string
+	Arguments string
 }

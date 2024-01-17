@@ -7,3 +7,11 @@ that plugs right into your code.
 
 - pdftotext, if any of your files are pdf's.
 - go1.22rc1, because i think its improved for-loop handling is crucial.
+
+## example
+
+simply illustrating how the "Ask" functionality works:
+
+```
+go run example/main.go
+```

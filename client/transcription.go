@@ -10,12 +10,17 @@ import (
 	"github.com/sashabaranov/go-openai"
 )
 
+type TranscriptionRequest struct {
+	Prompt string
+	File   AVFile
+}
+
 type AVFile struct {
 	ContentType string // the audio or video mime type
 	Content     []byte
 }
 
-// transcribes the audio of audio or video files
+// transcribes the audio of various multimedia files
 func TranscribeAV(c OpenAI, r TranscriptionRequest) (string, error) {
 	validWhisperExtensions := map[string]bool{
 		".m4a":  true,
