@@ -17,7 +17,8 @@ func main() {
 }
 
 type Response struct {
-	Answer string
+	Answer           string
+	DifficultyRating string
 }
 
 type Sum struct {
@@ -60,5 +61,6 @@ func run() error {
 	}
 	fmt.Printf("meta: %q\n", r.Meta)
 	fmt.Printf("answer: %q\n", r.Answer.Answer)
+	fmt.Printf("difficulty: %q\n", r.Answer.DifficultyRating)
 	return nil
 }

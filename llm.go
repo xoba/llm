@@ -239,7 +239,6 @@ LOOP:
 			var parsedResponse Response[ANSWER]
 			if err := d.Decode(&parsedResponse); err != nil {
 				log.Printf("error decoding, going to potentially retry: %v", err)
-				panic("debug")
 				errs = append(errs, err)
 				messages = append(messages, openai.ChatCompletionMessage{
 					Role:    openai.ChatMessageRoleUser,
