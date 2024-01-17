@@ -19,6 +19,7 @@ type OpenAI interface {
 	CreateChatCompletion(context.Context, openai.ChatCompletionRequest) (openai.ChatCompletionResponse, error)
 	CreateChatCompletionStream(context.Context, openai.ChatCompletionRequest) (*openai.ChatCompletionStream, error)
 	CreateTranscription(context.Context, openai.AudioRequest) (openai.AudioResponse, error)
+	CreateImage(context.Context, openai.ImageRequest) (response openai.ImageResponse, err error)
 }
 
 type client struct {
