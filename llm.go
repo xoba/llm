@@ -168,7 +168,6 @@ func Ask[ANSWER any](c client.Interface, q Question[ANSWER]) (Response[ANSWER], 
 		})
 	}
 	var errs []error
-	var n int
 	var tools []openai.Tool
 	switch whichModel {
 	case client.GPT4Turbo:
@@ -190,7 +189,7 @@ func Ask[ANSWER any](c client.Interface, q Question[ANSWER]) (Response[ANSWER], 
 	}
 LOOP:
 	for {
-		if n++; n == 4 {
+		if len(errs) > 4 {
 			return zero, fmt.Errorf("too many tries: %v", errs)
 		}
 		resp, err := c.Complete(client.CompletionRequest{
@@ -206,33 +205,35 @@ LOOP:
 		}
 		switch resp.FinishReason {
 		case "tool_calls":
-			tool, ok := q.Tools[resp.FunctionCall.Name]
-			if !ok {
-				return zero, fmt.Errorf("unknown tool: %q", resp.FunctionCall.Name)
-			}
-			result, err := tool.Compute(resp.FunctionCall.Arguments)
-			if err != nil {
-				return zero, err
-			}
-			fmt.Printf("result = %q\n", result)
-			messages = append(messages, openai.ChatCompletionMessage{
-				Role: openai.ChatMessageRoleAssistant,
-				ToolCalls: []openai.ToolCall{
-					{
-						ID:   resp.FunctionCall.ID,
-						Type: openai.ToolTypeFunction,
-						Function: openai.FunctionCall{
-							Name:      resp.FunctionCall.Name,
-							Arguments: resp.FunctionCall.Arguments,
+			for _, call := range resp.FunctionCalls {
+				tool, ok := q.Tools[call.Name]
+				if !ok {
+					return zero, fmt.Errorf("unknown tool: %q", call.Name)
+				}
+				result, err := tool.Compute(call.Arguments)
+				if err != nil {
+					return zero, err
+				}
+				fmt.Printf("result = %s\n", result)
+				messages = append(messages, openai.ChatCompletionMessage{
+					Role: openai.ChatMessageRoleAssistant,
+					ToolCalls: []openai.ToolCall{
+						{
+							ID:   call.ID,
+							Type: openai.ToolTypeFunction,
+							Function: openai.FunctionCall{
+								Name:      call.Name,
+								Arguments: call.Arguments,
+							},
 						},
 					},
-				},
-			})
-			messages = append(messages, openai.ChatCompletionMessage{
-				Role:       openai.ChatMessageRoleTool,
-				Content:    result,
-				ToolCallID: resp.FunctionCall.ID,
-			})
+				})
+				messages = append(messages, openai.ChatCompletionMessage{
+					Role:       openai.ChatMessageRoleTool,
+					Content:    result,
+					ToolCallID: call.ID,
+				})
+			}
 			continue LOOP
 
 		case "stop":

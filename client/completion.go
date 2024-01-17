@@ -3,6 +3,7 @@ package client
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -22,9 +23,9 @@ type CompletionRequest struct {
 }
 
 type CompletionResponse struct {
-	FinishReason string
-	Content      string
-	FunctionCall *FunctionCall
+	FinishReason  string
+	Content       string
+	FunctionCalls []*FunctionCall
 }
 
 //go:generate stringer -type=ResponseFormat
@@ -97,11 +98,9 @@ func Complete(c OpenAI, r CompletionRequest) (*CompletionResponse, error) {
 			return nil, err
 		}
 		defer resp.Close()
+		var calls []*FunctionCall
 		content := new(bytes.Buffer)
-		funcs := new(bytes.Buffer)
-		var funcName, callID string
 		contentW := io.MultiWriter(r.Stream, content)
-		funcsW := io.MultiWriter(r.Stream, funcs)
 		var finishReason string
 		for {
 			t, err := resp.Recv()
@@ -123,6 +122,13 @@ func Complete(c OpenAI, r CompletionRequest) (*CompletionResponse, error) {
 				}
 				return nil, err
 			}
+			if false {
+				buf, err := json.MarshalIndent(t, "", "  ")
+				if err != nil {
+					return nil, err
+				}
+				fmt.Printf("\nresponse: %s\n", string(buf))
+			}
 			choices := t.Choices
 			if len(choices) == 0 {
 				return nil, fmt.Errorf("no choices")
@@ -132,29 +138,30 @@ func Complete(c OpenAI, r CompletionRequest) (*CompletionResponse, error) {
 			fmt.Fprint(contentW, firstChoice.Delta.Content)
 			if len(firstChoice.Delta.ToolCalls) > 0 {
 				first := firstChoice.Delta.ToolCalls[0]
-				if len(first.ID) > 0 {
-					callID = first.ID
+				if i := first.Index; i != nil {
+					if *i >= len(calls) {
+						calls = append(calls, &FunctionCall{
+							w: new(bytes.Buffer),
+						})
+					}
+					call := calls[*i]
+					if len(first.ID) > 0 {
+						call.ID = first.ID
+					}
+					if first.Type == "function" && len(first.Function.Name) > 0 {
+						fmt.Printf("\nfunction: %s\nparameters: ", first.Function.Name)
+						call.Name = first.Function.Name
+					}
+					call.Arguments += first.Function.Arguments
+					fmt.Fprintf(r.Stream, first.Function.Arguments)
 				}
-				if first.Type == "function" && len(first.Function.Name) > 0 {
-					fmt.Printf("function: %s\nparameters: ", first.Function.Name)
-					funcName = first.Function.Name
-				}
-				fmt.Fprintf(funcsW, first.Function.Arguments)
 			}
 		}
 		fmt.Fprintln(contentW)
-		var fc *FunctionCall
-		if len(funcName) > 0 {
-			fc = &FunctionCall{
-				ID:        callID,
-				Name:      funcName,
-				Arguments: funcs.String(),
-			}
-		}
 		return &CompletionResponse{
-			FinishReason: finishReason,
-			Content:      content.String(),
-			FunctionCall: fc,
+			FinishReason:  finishReason,
+			Content:       content.String(),
+			FunctionCalls: calls,
 		}, nil
 	}
 }
@@ -163,4 +170,10 @@ type FunctionCall struct {
 	ID        string
 	Name      string
 	Arguments string
+	w         *bytes.Buffer
+}
+
+func (f FunctionCall) String() string {
+	buf, _ := json.MarshalIndent(f, "", "  ")
+	return string(buf)
 }
