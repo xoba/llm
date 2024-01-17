@@ -1,0 +1,4 @@
+you respond only in JSON, please, without enclosing markdown, or
+any other extraneous narrative or characters.  please don't add any
+json schema material either, and don't enclose your json in ```
+marks.  this is very important for my career!

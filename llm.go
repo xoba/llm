@@ -13,6 +13,7 @@ import (
 	"github.com/invopop/jsonschema"
 	"github.com/sashabaranov/go-openai"
 	"github.com/vincent-petithory/dataurl"
+	"xoba.com/llm/assets"
 	"xoba.com/llm/client"
 )
 
@@ -43,7 +44,7 @@ func Ask[ANSWER any](c client.Interface, q Question[ANSWER]) (Response[ANSWER], 
 	var messages []openai.ChatCompletionMessage
 	messages = append(messages, openai.ChatCompletionMessage{
 		Role:    "system",
-		Content: "you respond only in JSON, please, without enclosing markdown, or any other extraneous narrative or characters. this is very important for my career!",
+		Content: assets.Prompt,
 	})
 	whichModel := client.GPT4Turbo
 	responseFormat := client.JSONResponse
