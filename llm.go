@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"sort"
 	"strings"
 
 	"github.com/invopop/jsonschema"
@@ -181,6 +182,9 @@ func Ask[ANSWER any](c client.Interface, q Question[ANSWER]) (Response[ANSWER], 
 				Function: def,
 			})
 		}
+		sort.Slice(tools, func(i, j int) bool {
+			return tools[i].Function.Name < tools[j].Function.Name
+		})
 	case client.GPT4Vision:
 		// tools not supported!
 	}
