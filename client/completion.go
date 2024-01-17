@@ -3,7 +3,6 @@ package client
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -87,8 +86,6 @@ func Complete(c OpenAI, r CompletionRequest) (*CompletionResponse, error) {
 		if err != nil {
 			return nil, err
 		}
-		buf, _ := json.MarshalIndent(resp, "", "  ")
-		fmt.Println(string(buf))
 		return &CompletionResponse{
 			FinishReason: string(resp.Choices[0].FinishReason),
 			Content:      resp.Choices[0].Message.Content,
@@ -97,8 +94,6 @@ func Complete(c OpenAI, r CompletionRequest) (*CompletionResponse, error) {
 		req.Stream = true
 		resp, err := c.CreateChatCompletionStream(context.Background(), req)
 		if err != nil {
-			buf, _ := json.MarshalIndent(req, "", "  ")
-			fmt.Println(string(buf))
 			return nil, err
 		}
 		defer resp.Close()

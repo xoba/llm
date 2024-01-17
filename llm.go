@@ -169,15 +169,20 @@ func Ask[ANSWER any](c client.Interface, q Question[ANSWER]) (Response[ANSWER], 
 	var errs []error
 	var n int
 	var tools []openai.Tool
-	for name, t := range q.Tools {
-		def := t.Defintion()
-		if name != def.Name {
-			return zero, fmt.Errorf("tool name %q does not match definition name %q", name, def.Name)
+	switch whichModel {
+	case client.GPT4Turbo:
+		for name, t := range q.Tools {
+			def := t.Defintion()
+			if name != def.Name {
+				return zero, fmt.Errorf("tool name %q does not match definition name %q", name, def.Name)
+			}
+			tools = append(tools, openai.Tool{
+				Type:     openai.ToolTypeFunction,
+				Function: def,
+			})
 		}
-		tools = append(tools, openai.Tool{
-			Type:     openai.ToolTypeFunction,
-			Function: def,
-		})
+	case client.GPT4Vision:
+		// tools not supported!
 	}
 LOOP:
 	for {

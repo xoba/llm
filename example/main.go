@@ -22,13 +22,13 @@ type Response struct {
 }
 
 type Sum struct {
-	A, B float64
+	Addends []float64
 }
 
 func (s Sum) Defintion() openai.FunctionDefinition {
 	return openai.FunctionDefinition{
 		Name:        "sum",
-		Description: "adds two numbers",
+		Description: "adds numbers",
 		Parameters:  schema.Calculate(s),
 	}
 }
@@ -37,7 +37,34 @@ func (s Sum) Compute(p string) (string, error) {
 	if err := json.Unmarshal([]byte(p), &s); err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("%f", s.A+s.B), nil
+	var sum float64
+	for _, x := range s.Addends {
+		sum += x
+	}
+	return fmt.Sprintf("%f", sum), nil
+}
+
+type Mult struct {
+	Multiplicands []float64
+}
+
+func (s Mult) Defintion() openai.FunctionDefinition {
+	return openai.FunctionDefinition{
+		Name:        "mult",
+		Description: "multiplies numbers",
+		Parameters:  schema.Calculate(s),
+	}
+}
+
+func (s Mult) Compute(p string) (string, error) {
+	if err := json.Unmarshal([]byte(p), &s); err != nil {
+		return "", err
+	}
+	product := 1.0
+	for _, x := range s.Multiplicands {
+		product *= x
+	}
+	return fmt.Sprintf("%f", product), nil
 }
 
 func run() error {
@@ -46,11 +73,10 @@ func run() error {
 		return err
 	}
 	tools := make(map[string]llm.Tool)
-	for _, t := range []llm.Tool{Sum{}} {
+	for _, t := range []llm.Tool{Sum{}, Mult{}} {
 		tools[t.Defintion().Name] = t
 	}
-	// const question = "what is most likely color of an apple? one word answer please"
-	const question = "what is 455342+22342.6?"
+	const question = "what is 5*(455342+22342.6)*99?"
 	fmt.Printf("question: %q\n", question)
 	r, err := llm.Ask[Response](c, llm.Question[Response]{
 		Prompt: question,
