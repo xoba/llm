@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/invopop/jsonschema"
 	"github.com/sashabaranov/go-openai"
 	"github.com/vincent-petithory/dataurl"
 	"xoba.com/llm/assets"
@@ -134,6 +135,7 @@ func Ask[ANSWER any](c client.Interface, q Question[ANSWER]) (Response[ANSWER], 
 		Content: q.Prompt,
 	})
 	{
+		fmt.Println("***")
 		responseSchema := schema.Calculate(&Response[ANSWER]{})
 		schema, err := json.MarshalIndent(responseSchema, "", "  ")
 		if err != nil {
@@ -262,3 +264,6 @@ func PdfToText(pdf []byte) ([]byte, error) {
 func cleanText(s string) string {
 	return strings.Join(strings.Fields(s), " ")
 }
+
+// BOGUS: jsonschema MarshalJSON doesn't work unless we import via this!!!
+var _ jsonschema.Reflector
