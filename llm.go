@@ -135,7 +135,6 @@ func Ask[ANSWER any](c client.Interface, q Question[ANSWER]) (Response[ANSWER], 
 		Content: q.Prompt,
 	})
 	{
-		fmt.Println("***")
 		responseSchema := schema.Calculate(&Response[ANSWER]{})
 		schema, err := json.MarshalIndent(responseSchema, "", "  ")
 		if err != nil {
