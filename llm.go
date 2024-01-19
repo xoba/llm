@@ -19,32 +19,36 @@ import (
 	"xoba.com/llm/schema"
 )
 
+// Question is a question to ask the assistant
+// ANSWER is the type of the answer, field names should be self-explanatory
 type Question[ANSWER any] struct {
-	Prompt   string
-	Tools    map[string]Tool
-	Files    []File
-	Examples []ANSWER
+	Prompt   string          // the question to ask, including your prompt
+	Files    []File          // files to use as background material
+	Tools    map[string]Tool // tools at the assistant's disposal
+	Examples []ANSWER        // examples of what the answer may look like
 }
 
+// File is a file to use as background material
 type File struct {
 	Name        string
 	Content     []byte
 	ContentType string
 }
 
-type Response[T any] struct {
+type Tool interface {
+	Defintion() openai.FunctionDefinition
+	Compute(parameters string) (string, error)
+}
+
+// Response is the response to asking a Question
+type Response[ANSWER any] struct {
 	Meta   string // free-form meta information about the process
-	Answer T
+	Answer ANSWER
 }
 
 func (r Response[T]) String() string {
 	buf, _ := json.MarshalIndent(r, "", "  ")
 	return string(buf)
-}
-
-type Tool interface {
-	Defintion() openai.FunctionDefinition
-	Compute(parms string) (string, error)
 }
 
 func Ask[ANSWER any](c client.Interface, q Question[ANSWER]) (Response[ANSWER], error) {
@@ -185,7 +189,7 @@ func Ask[ANSWER any](c client.Interface, q Question[ANSWER]) (Response[ANSWER], 
 			return tools[i].Function.Name < tools[j].Function.Name
 		})
 	case client.GPT4Vision:
-		// tools not supported!
+		// tools not supported by GPTV!
 	}
 LOOP:
 	for {

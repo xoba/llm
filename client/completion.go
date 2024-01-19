@@ -81,6 +81,9 @@ func Complete(c OpenAI, r CompletionRequest) (*CompletionResponse, error) {
 	default:
 		return nil, fmt.Errorf("unknown format: %d", r.Format)
 	}
+	// TODO: unify stream-or-not processing, by aggregating
+	// stream bits into an openai.ChatCompletionResponse,
+	// not processing them specially:
 	if r.Stream == nil {
 		// TODO: need to handle functions here
 		resp, err := c.CreateChatCompletion(context.Background(), req)
