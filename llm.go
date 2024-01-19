@@ -85,7 +85,7 @@ func Ask[ANSWER any](c client.Interface, q Question[ANSWER]) (Response[ANSWER], 
 				),
 			})
 		case "application/pdf":
-			txt, err := PdfToText(d.Content)
+			txt, err := pdfToText(d.Content)
 			if err != nil {
 				return zero, err
 			}
@@ -268,7 +268,7 @@ LOOP:
 	}
 }
 
-func PdfToText(pdf []byte) ([]byte, error) {
+func pdfToText(pdf []byte) ([]byte, error) {
 	cmd := exec.Command("pdftotext", "-", "-")
 	cmd.Stdin = bytes.NewReader(pdf)
 	return cmd.Output()
@@ -278,5 +278,5 @@ func cleanText(s string) string {
 	return strings.Join(strings.Fields(s), " ")
 }
 
-// BOGUS: jsonschema MarshalJSON doesn't work unless we import via this!!!
+// BOGUS: jsonschema MarshalJSON doesn't work unless we import it HERE, via this decl!!!
 var _ jsonschema.Reflector
