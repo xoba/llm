@@ -21,6 +21,7 @@ type OpenAI interface {
 	CreateTranscription(context.Context, openai.AudioRequest) (openai.AudioResponse, error)
 	CreateImage(context.Context, openai.ImageRequest) (response openai.ImageResponse, err error)
 	CreateTranslation(context.Context, openai.AudioRequest) (openai.AudioResponse, error)
+	CreateEmbeddings(context.Context, openai.EmbeddingRequestConverter) (openai.EmbeddingResponse, error)
 }
 
 type client struct {
