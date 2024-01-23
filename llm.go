@@ -51,8 +51,7 @@ func (r Response[T]) String() string {
 	return string(buf)
 }
 
-func Ask[ANSWER any](c client.Interface, q Question[ANSWER]) (Response[ANSWER], error) {
-	var zero Response[ANSWER]
+func Ask[ANSWER any](c client.Interface, q Question[ANSWER]) (*Response[ANSWER], error) {
 	var messages []openai.ChatCompletionMessage
 	messages = append(messages, openai.ChatCompletionMessage{
 		Role:    openai.ChatMessageRoleSystem,
@@ -74,7 +73,7 @@ func Ask[ANSWER any](c client.Interface, q Question[ANSWER]) (Response[ANSWER], 
 				File: client.AVFile{ContentType: d.ContentType, Content: d.Content},
 			})
 			if err != nil {
-				return zero, err
+				return nil, err
 			}
 			messages = append(messages, openai.ChatCompletionMessage{
 				Role: openai.ChatMessageRoleSystem,
@@ -87,7 +86,7 @@ func Ask[ANSWER any](c client.Interface, q Question[ANSWER]) (Response[ANSWER], 
 		case "application/pdf":
 			txt, err := pdfToText(d.Content)
 			if err != nil {
-				return zero, err
+				return nil, err
 			}
 			messages = append(messages, openai.ChatCompletionMessage{
 				Role: openai.ChatMessageRoleSystem,
@@ -132,7 +131,7 @@ func Ask[ANSWER any](c client.Interface, q Question[ANSWER]) (Response[ANSWER], 
 				},
 			})
 		default:
-			return zero, fmt.Errorf("unsupported content type: %q", d.ContentType)
+			return nil, fmt.Errorf("unsupported content type: %q", d.ContentType)
 		}
 	}
 	messages = append(messages, openai.ChatCompletionMessage{
@@ -143,7 +142,7 @@ func Ask[ANSWER any](c client.Interface, q Question[ANSWER]) (Response[ANSWER], 
 		responseSchema := schema.Calculate(&Response[ANSWER]{})
 		schema, err := json.MarshalIndent(responseSchema, "", "  ")
 		if err != nil {
-			return zero, err
+			return nil, err
 		}
 		messages = append(messages, openai.ChatCompletionMessage{
 			Role:    openai.ChatMessageRoleUser,
@@ -162,7 +161,7 @@ func Ask[ANSWER any](c client.Interface, q Question[ANSWER]) (Response[ANSWER], 
 			}
 			buf, err := json.MarshalIndent(a, "", "  ")
 			if err != nil {
-				return zero, err
+				return nil, err
 			}
 			fmt.Fprintf(examples, "example #%d: %s\n\n", i+1, string(buf))
 		}
@@ -178,7 +177,7 @@ func Ask[ANSWER any](c client.Interface, q Question[ANSWER]) (Response[ANSWER], 
 		for name, t := range q.Tools {
 			def := t.Defintion()
 			if name != def.Name {
-				return zero, fmt.Errorf("tool name %q does not match definition name %q", name, def.Name)
+				return nil, fmt.Errorf("tool name %q does not match definition name %q", name, def.Name)
 			}
 			tools = append(tools, openai.Tool{
 				Type:     openai.ToolTypeFunction,
@@ -194,7 +193,7 @@ func Ask[ANSWER any](c client.Interface, q Question[ANSWER]) (Response[ANSWER], 
 LOOP:
 	for {
 		if len(errs) > 4 {
-			return zero, fmt.Errorf("too many tries: %v", errs)
+			return nil, fmt.Errorf("too many tries: %v", errs)
 		}
 		resp, err := c.Complete(client.CompletionRequest{
 			Model:     whichModel,
@@ -205,18 +204,18 @@ LOOP:
 			Tools:     tools,
 		})
 		if err != nil {
-			return zero, err
+			return nil, err
 		}
 		switch resp.FinishReason {
 		case "tool_calls":
 			for _, call := range resp.FunctionCalls {
 				tool, ok := q.Tools[call.Name]
 				if !ok {
-					return zero, fmt.Errorf("unknown tool: %q", call.Name)
+					return nil, fmt.Errorf("unknown tool: %q", call.Name)
 				}
 				result, err := tool.Compute(call.Arguments)
 				if err != nil {
-					return zero, err
+					return nil, err
 				}
 				fmt.Printf("result = %s\n", result)
 				messages = append(messages, openai.ChatCompletionMessage{
@@ -261,9 +260,9 @@ LOOP:
 				})
 				continue LOOP
 			}
-			return parsedResponse, nil
+			return &parsedResponse, nil
 		default:
-			return zero, fmt.Errorf("unhandled finish reason: %q", resp.FinishReason)
+			return nil, fmt.Errorf("unhandled finish reason: %q", resp.FinishReason)
 		}
 	}
 }
