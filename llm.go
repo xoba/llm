@@ -22,7 +22,7 @@ import (
 // Question is a question to ask the assistant
 // ANSWER is the type of the answer, field names should be self-explanatory
 type Question[ANSWER any] struct {
-	Prompt   string                         // the question to ask, including your prompt
+	Prompt   string                         // the question to ask, including prompt etc.
 	Files    []File                         // files to use as background material
 	Tools    map[string]Tool                // tools at the assistant's disposal
 	Examples []Example[ANSWER]              // examples of what the answer may look like
@@ -63,16 +63,21 @@ func (r Response[T]) String() string {
 }
 
 func Ask[ANSWER any](c client.Interface, q Question[ANSWER]) (*Result[ANSWER], error) {
-	var messages []openai.ChatCompletionMessage
-	messages = append(messages, openai.ChatCompletionMessage{
-		Role:    openai.ChatMessageRoleSystem,
-		Content: assets.Prompt,
-	})
+	firstQuestion := len(q.Messages) == 0
+	add := func(m openai.ChatCompletionMessage) {
+		q.Messages = append(q.Messages, m)
+	}
+	if firstQuestion {
+		add(openai.ChatCompletionMessage{
+			Role:    openai.ChatMessageRoleSystem,
+			Content: assets.Prompt,
+		})
+	}
 	whichModel := client.GPT4Turbo
 	responseFormat := client.JSONResponse
 	var maxTokens int
 	if len(q.Files) > 0 {
-		messages = append(messages, openai.ChatCompletionMessage{
+		add(openai.ChatCompletionMessage{
 			Role:    openai.ChatMessageRoleSystem,
 			Content: fmt.Sprintf(`there are going to be %d files in the following request, each of which you will use as background material for assisting the user.`, len(q.Files)),
 		})
@@ -86,7 +91,7 @@ func Ask[ANSWER any](c client.Interface, q Question[ANSWER]) (*Result[ANSWER], e
 			if err != nil {
 				return nil, err
 			}
-			messages = append(messages, openai.ChatCompletionMessage{
+			add(openai.ChatCompletionMessage{
 				Role: openai.ChatMessageRoleSystem,
 				Content: fmt.Sprintf(
 					"here is the transcription of a %s file named %q:\n\n%s",
@@ -99,7 +104,7 @@ func Ask[ANSWER any](c client.Interface, q Question[ANSWER]) (*Result[ANSWER], e
 			if err != nil {
 				return nil, err
 			}
-			messages = append(messages, openai.ChatCompletionMessage{
+			add(openai.ChatCompletionMessage{
 				Role: openai.ChatMessageRoleSystem,
 				Content: fmt.Sprintf(
 					"here is the text rendering of an %s file named %q:\n\n%s",
@@ -111,7 +116,7 @@ func Ask[ANSWER any](c client.Interface, q Question[ANSWER]) (*Result[ANSWER], e
 			"text/plain", "text/html", "text/markdown", "text/csv", "text/xml", "text/rtf",
 			"text/tab-separated-values", "text/richtext",
 			"text/yaml", "text/x-yaml", "text/x-markdown", "text/x-rst", "text/x-org":
-			messages = append(messages, openai.ChatCompletionMessage{
+			add(openai.ChatCompletionMessage{
 				Role: openai.ChatMessageRoleSystem,
 				Content: fmt.Sprintf(
 					"here is a %s file named %q:\n\n%s",
@@ -123,7 +128,7 @@ func Ask[ANSWER any](c client.Interface, q Question[ANSWER]) (*Result[ANSWER], e
 			whichModel = client.GPT4Vision
 			responseFormat = client.NoneSpecified // vision has no format at all
 			maxTokens = 4096                      // specify, since vision defaults to few output tokens
-			messages = append(messages, openai.ChatCompletionMessage{
+			add(openai.ChatCompletionMessage{
 				Role: openai.ChatMessageRoleSystem,
 				MultiContent: []openai.ChatMessagePart{
 					{
@@ -145,17 +150,17 @@ func Ask[ANSWER any](c client.Interface, q Question[ANSWER]) (*Result[ANSWER], e
 			return nil, fmt.Errorf("unsupported content type: %q", d.ContentType)
 		}
 	}
-	messages = append(messages, openai.ChatCompletionMessage{
+	add(openai.ChatCompletionMessage{
 		Role:    openai.ChatMessageRoleUser,
 		Content: q.Prompt,
 	})
-	{
+	if firstQuestion {
 		responseSchema := schema.Calculate(&Response[ANSWER]{})
 		schema, err := json.MarshalIndent(responseSchema, "", "  ")
 		if err != nil {
 			return nil, err
 		}
-		messages = append(messages, openai.ChatCompletionMessage{
+		add(openai.ChatCompletionMessage{
 			Role:    openai.ChatMessageRoleUser,
 			Content: fmt.Sprintf(`the schema of your json answer must match: %s`, string(schema)),
 		})
@@ -174,7 +179,7 @@ func Ask[ANSWER any](c client.Interface, q Question[ANSWER]) (*Result[ANSWER], e
 			}
 			fmt.Fprintf(examples, "example #%d in response to prompt %q: %s\n\n", i+1, e.Prompt, string(buf))
 		}
-		messages = append(messages, openai.ChatCompletionMessage{
+		add(openai.ChatCompletionMessage{
 			Role:    openai.ChatMessageRoleUser,
 			Content: examples.String(),
 		})
@@ -209,7 +214,7 @@ LOOP:
 			Format:    responseFormat,
 			MaxTokens: maxTokens,
 			Stream:    os.Stdout,
-			Messages:  messages,
+			Messages:  q.Messages,
 			Tools:     tools,
 		})
 		if err != nil {
@@ -227,7 +232,7 @@ LOOP:
 					return nil, err
 				}
 				fmt.Printf("result = %s\n", result)
-				messages = append(messages, openai.ChatCompletionMessage{
+				add(openai.ChatCompletionMessage{
 					Role: openai.ChatMessageRoleAssistant,
 					ToolCalls: []openai.ToolCall{
 						{
@@ -240,7 +245,7 @@ LOOP:
 						},
 					},
 				})
-				messages = append(messages, openai.ChatCompletionMessage{
+				add(openai.ChatCompletionMessage{
 					Role:       openai.ChatMessageRoleTool,
 					Content:    result,
 					ToolCallID: call.ID,
@@ -249,7 +254,7 @@ LOOP:
 			continue LOOP
 
 		case "stop":
-			messages = append(messages, openai.ChatCompletionMessage{
+			add(openai.ChatCompletionMessage{
 				Role:    openai.ChatMessageRoleAssistant,
 				Content: resp.Content,
 			})
@@ -263,7 +268,7 @@ LOOP:
 			if err := d.Decode(&parsedResponse); err != nil {
 				log.Printf("error decoding, going to potentially retry: %v", err)
 				errs = append(errs, err)
-				messages = append(messages, openai.ChatCompletionMessage{
+				add(openai.ChatCompletionMessage{
 					Role:    openai.ChatMessageRoleUser,
 					Content: fmt.Sprintf("oops, i got an error parsing your response as json: %v. could you please re-do with correct json having no extraneous characters, etc?", err),
 				})
@@ -271,7 +276,7 @@ LOOP:
 			}
 			return &Result[ANSWER]{
 				Response: parsedResponse,
-				Messages: messages,
+				Messages: q.Messages,
 			}, nil
 		default:
 			return nil, fmt.Errorf("unhandled finish reason: %q", resp.FinishReason)

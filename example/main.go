@@ -1,10 +1,13 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math"
 	"os"
+	"strings"
 
 	"github.com/sashabaranov/go-openai"
 	"xoba.com/llm"
@@ -13,36 +16,82 @@ import (
 )
 
 func main() {
-	if err := run(); err != nil {
+	if err := router("conversation"); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 	}
 }
 
-func run() error {
+func router(mode string) error {
+	if len(os.Args) > 1 {
+		mode = os.Args[1]
+	}
+	var f func(client.Interface) error
+	switch mode {
+	case "arithmetic":
+		f = arithmetic
+	case "conversation":
+		f = conversation
+	default:
+		return fmt.Errorf("unknown mode: %q", mode)
+	}
 	c, err := client.NewDefault()
 	if err != nil {
 		return err
 	}
+	return f(c)
+}
+
+type ConversationResponse struct {
+	StoryTitle string
+	Actors     []string
+}
+
+func conversation(c client.Interface) error {
+	var messages []openai.ChatCompletionMessage
+	prompt := "create a short story concept for me"
+	reader := bufio.NewReader(os.Stdin)
+	for {
+		r, err := llm.Ask(c, llm.Question[ConversationResponse]{
+			Prompt:   prompt,
+			Messages: messages,
+		})
+		if err != nil {
+			return err
+		}
+		fmt.Print("\n> ")
+		text, err := reader.ReadString('\n')
+		if err == io.EOF {
+			fmt.Println()
+			return nil
+		} else if err != nil {
+			return fmt.Errorf("can't read from stdin: %v", err)
+		}
+		prompt = strings.TrimSpace(text)
+		messages = r.Messages
+	}
+}
+
+func arithmetic(c client.Interface) error {
 	tools := make(map[string]llm.Tool)
 	for _, t := range []llm.Tool{Sum{}, Mult{}, Exp{}} {
 		tools[t.Defintion().Name] = t
 	}
 	const question = "what is 5 * (455342+22342.6)^1.1 * 99?"
 	fmt.Printf("question: %q\n", question)
-	r, err := llm.Ask[Response](c, llm.Question[Response]{
+	r, err := llm.Ask(c, llm.Question[ArithmeticResponse]{
 		Prompt: question,
 		Tools:  tools,
-		Examples: []llm.Example[Response]{
+		Examples: []llm.Example[ArithmeticResponse]{
 			{
 				Prompt: "what is 7 + 3?",
-				Answer: Response{
+				Answer: ArithmeticResponse{
 					Answer:           "10",
 					DifficultyRating: "easy",
 				},
 			},
 			{
 				Prompt: "what is (10*2)^2?",
-				Answer: Response{
+				Answer: ArithmeticResponse{
 					Answer:           "400",
 					DifficultyRating: "medium",
 				},
@@ -65,7 +114,7 @@ func run() error {
 	return nil
 }
 
-type Response struct {
+type ArithmeticResponse struct {
 	Answer           string
 	DifficultyRating string
 }
