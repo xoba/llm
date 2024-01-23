@@ -34,7 +34,7 @@ type Example[ANSWER any] struct {
 	Answer ANSWER
 }
 
-// File is a file to use as background material
+// File is background material
 type File struct {
 	Name        string
 	Content     []byte
@@ -46,23 +46,23 @@ type Tool interface {
 	Compute(parameters string) (string, error)
 }
 
-// Response is the response to asking a Question
-type Response[ANSWER any] struct {
-	Meta   string // free-form meta information about the process
-	Answer ANSWER
+// Answer is the response to asking a Question
+type Answer[ANSWER any] struct {
+	ConversationalAnswer string // free-form, high-level answer to the question
+	FormalAnswer         ANSWER // formal answer to the question, in a specific schema
 }
 
-type Result[ANSWER any] struct {
-	Response Response[ANSWER]
+type Response[ANSWER any] struct {
+	Answer   *Answer[ANSWER]
 	Messages []openai.ChatCompletionMessage
 }
 
-func (r Response[T]) String() string {
+func (r Answer[T]) String() string {
 	buf, _ := json.MarshalIndent(r, "", "  ")
 	return string(buf)
 }
 
-func Ask[ANSWER any](c client.Interface, q Question[ANSWER]) (*Result[ANSWER], error) {
+func Ask[ANSWER any](c client.Interface, q Question[ANSWER]) (*Response[ANSWER], error) {
 	firstQuestion := len(q.Messages) == 0
 	add := func(m openai.ChatCompletionMessage) {
 		q.Messages = append(q.Messages, m)
@@ -71,6 +71,10 @@ func Ask[ANSWER any](c client.Interface, q Question[ANSWER]) (*Result[ANSWER], e
 		add(openai.ChatCompletionMessage{
 			Role:    openai.ChatMessageRoleSystem,
 			Content: assets.Prompt,
+		})
+		add(openai.ChatCompletionMessage{
+			Role:    openai.ChatMessageRoleSystem,
+			Content: `in responding, don't include a formal answer if you're asking questions of the user.`,
 		})
 	}
 	whichModel := client.GPT4Turbo
@@ -155,7 +159,7 @@ func Ask[ANSWER any](c client.Interface, q Question[ANSWER]) (*Result[ANSWER], e
 		Content: q.Prompt,
 	})
 	if firstQuestion {
-		responseSchema := schema.Calculate(&Response[ANSWER]{})
+		responseSchema := schema.Calculate(&Answer[ANSWER]{})
 		schema, err := json.MarshalIndent(responseSchema, "", "  ")
 		if err != nil {
 			return nil, err
@@ -169,9 +173,9 @@ func Ask[ANSWER any](c client.Interface, q Question[ANSWER]) (*Result[ANSWER], e
 		examples := new(bytes.Buffer)
 		fmt.Fprintf(examples, "here are %d fictitious example(s) for how your json responses may look like in practice:\n\n", len(q.Examples))
 		for i, e := range q.Examples {
-			a := Response[ANSWER]{
-				Answer: e.Answer,
-				Meta:   cleanText(fmt.Sprintf(`freeform text about answering question %q`, e.Prompt)),
+			a := Answer[ANSWER]{
+				FormalAnswer:         e.Answer,
+				ConversationalAnswer: cleanText(fmt.Sprintf(`freeform text about answering question %q`, e.Prompt)),
 			}
 			buf, err := json.MarshalIndent(a, "", "  ")
 			if err != nil {
@@ -264,7 +268,7 @@ LOOP:
 			resp.Content = strings.TrimSuffix(resp.Content, "```")
 			d := json.NewDecoder(strings.NewReader(resp.Content))
 			d.DisallowUnknownFields()
-			var parsedResponse Response[ANSWER]
+			var parsedResponse Answer[ANSWER]
 			if err := d.Decode(&parsedResponse); err != nil {
 				log.Printf("error decoding, going to potentially retry: %v", err)
 				errs = append(errs, err)
@@ -274,8 +278,8 @@ LOOP:
 				})
 				continue LOOP
 			}
-			return &Result[ANSWER]{
-				Response: parsedResponse,
+			return &Response[ANSWER]{
+				Answer:   &parsedResponse,
 				Messages: q.Messages,
 			}, nil
 		default:

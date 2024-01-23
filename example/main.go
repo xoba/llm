@@ -101,9 +101,9 @@ func arithmetic(c client.Interface) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("meta: %q\n", r.Response.Meta)
-	fmt.Printf("answer: %q\n", r.Response.Answer.Answer)
-	fmt.Printf("difficulty: %q\n", r.Response.Answer.DifficultyRating)
+	fmt.Printf("conversational: %q\n", r.Answer.ConversationalAnswer)
+	fmt.Printf("formal: %q\n", r.Answer.FormalAnswer.Answer)
+	fmt.Printf("difficulty: %q\n", r.Answer.FormalAnswer.DifficultyRating)
 	for _, m := range r.Messages {
 		buf, err := json.MarshalIndent(m, "", "  ")
 		if err != nil {
