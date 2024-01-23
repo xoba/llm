@@ -23,9 +23,9 @@ import (
 // ANSWER is the type of the answer, field names should be self-explanatory
 type Question[ANSWER any] struct {
 	Prompt   string                         // the question to ask, including prompt etc.
-	Files    []File                         // files to use as background material
+	Files    []File                         // files to use as background material (additional each round)
+	Examples []Example[ANSWER]              // examples of what the answer may look like (additional each round)
 	Tools    map[string]Tool                // tools at the assistant's disposal
-	Examples []Example[ANSWER]              // examples of what the answer may look like
 	Messages []openai.ChatCompletionMessage // state of prior conversation
 }
 
