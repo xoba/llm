@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"math"
+	"os"
 
 	"github.com/sashabaranov/go-openai"
 	"xoba.com/llm"
@@ -12,8 +14,55 @@ import (
 
 func main() {
 	if err := run(); err != nil {
-		fmt.Println(err)
+		fmt.Fprintln(os.Stderr, err)
 	}
+}
+
+func run() error {
+	c, err := client.NewDefault()
+	if err != nil {
+		return err
+	}
+	tools := make(map[string]llm.Tool)
+	for _, t := range []llm.Tool{Sum{}, Mult{}, Exp{}} {
+		tools[t.Defintion().Name] = t
+	}
+	const question = "what is 5 * (455342+22342.6)^1.1 * 99?"
+	fmt.Printf("question: %q\n", question)
+	r, err := llm.Ask[Response](c, llm.Question[Response]{
+		Prompt: question,
+		Tools:  tools,
+		Examples: []llm.Example[Response]{
+			{
+				Prompt: "what is 7 + 3?",
+				Answer: Response{
+					Answer:           "10",
+					DifficultyRating: "easy",
+				},
+			},
+			{
+				Prompt: "what is (10*2)^2?",
+				Answer: Response{
+					Answer:           "400",
+					DifficultyRating: "medium",
+				},
+			},
+		},
+	})
+	if err != nil {
+		return err
+	}
+	fmt.Printf("meta: %q\n", r.Response.Meta)
+	fmt.Printf("answer: %q\n", r.Response.Answer.Answer)
+	fmt.Printf("difficulty: %q\n", r.Response.Answer.DifficultyRating)
+	for _, m := range r.Messages {
+		buf, err := json.MarshalIndent(m, "", "  ")
+		if err != nil {
+			return err
+		}
+		fmt.Println(string(buf))
+	}
+	return nil
 }
 
 type Response struct {
@@ -67,26 +116,22 @@ func (s Mult) Compute(p string) (string, error) {
 	return fmt.Sprintf("%f", product), nil
 }
 
-func run() error {
-	c, err := client.NewDefault()
-	if err != nil {
-		return err
+type Exp struct {
+	Base  float64
+	Power float64
+}
+
+func (s Exp) Defintion() openai.FunctionDefinition {
+	return openai.FunctionDefinition{
+		Name:        "exp",
+		Description: "exponentiation",
+		Parameters:  schema.Calculate(s),
 	}
-	tools := make(map[string]llm.Tool)
-	for _, t := range []llm.Tool{Sum{}, Mult{}} {
-		tools[t.Defintion().Name] = t
+}
+
+func (s Exp) Compute(p string) (string, error) {
+	if err := json.Unmarshal([]byte(p), &s); err != nil {
+		return "", err
 	}
-	const question = "what is 5*(455342+22342.6)*99?"
-	fmt.Printf("question: %q\n", question)
-	r, err := llm.Ask[Response](c, llm.Question[Response]{
-		Prompt: question,
-		Tools:  tools,
-	})
-	if err != nil {
-		return err
-	}
-	fmt.Printf("meta: %q\n", r.Meta)
-	fmt.Printf("answer: %q\n", r.Answer.Answer)
-	fmt.Printf("difficulty: %q\n", r.Answer.DifficultyRating)
-	return nil
+	return fmt.Sprintf("%f", math.Pow(s.Base, s.Power)), nil
 }

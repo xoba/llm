@@ -22,10 +22,16 @@ import (
 // Question is a question to ask the assistant
 // ANSWER is the type of the answer, field names should be self-explanatory
 type Question[ANSWER any] struct {
-	Prompt   string          // the question to ask, including your prompt
-	Files    []File          // files to use as background material
-	Tools    map[string]Tool // tools at the assistant's disposal
-	Examples []ANSWER        // examples of what the answer may look like
+	Prompt   string                         // the question to ask, including your prompt
+	Files    []File                         // files to use as background material
+	Tools    map[string]Tool                // tools at the assistant's disposal
+	Examples []Example[ANSWER]              // examples of what the answer may look like
+	Messages []openai.ChatCompletionMessage // state of prior conversation
+}
+
+type Example[ANSWER any] struct {
+	Prompt string
+	Answer ANSWER
 }
 
 // File is a file to use as background material
@@ -46,12 +52,17 @@ type Response[ANSWER any] struct {
 	Answer ANSWER
 }
 
+type Result[ANSWER any] struct {
+	Response Response[ANSWER]
+	Messages []openai.ChatCompletionMessage
+}
+
 func (r Response[T]) String() string {
 	buf, _ := json.MarshalIndent(r, "", "  ")
 	return string(buf)
 }
 
-func Ask[ANSWER any](c client.Interface, q Question[ANSWER]) (*Response[ANSWER], error) {
+func Ask[ANSWER any](c client.Interface, q Question[ANSWER]) (*Result[ANSWER], error) {
 	var messages []openai.ChatCompletionMessage
 	messages = append(messages, openai.ChatCompletionMessage{
 		Role:    openai.ChatMessageRoleSystem,
@@ -151,19 +162,17 @@ func Ask[ANSWER any](c client.Interface, q Question[ANSWER]) (*Response[ANSWER],
 	}
 	if len(q.Examples) > 0 {
 		examples := new(bytes.Buffer)
-		fmt.Fprintf(examples, "here are %d fictitious example(s) for how your json response may look like in practice:\n\n", len(q.Examples))
+		fmt.Fprintf(examples, "here are %d fictitious example(s) for how your json responses may look like in practice:\n\n", len(q.Examples))
 		for i, e := range q.Examples {
 			a := Response[ANSWER]{
-				Answer: e,
-				Meta: cleanText(`this is a free-form response field for meta-level information, 
-			it can be anything related to the task at hand or 
-			the conversational process, not necessarily the question or answer per se.`),
+				Answer: e.Answer,
+				Meta:   cleanText(fmt.Sprintf(`freeform text about answering question %q`, e.Prompt)),
 			}
 			buf, err := json.MarshalIndent(a, "", "  ")
 			if err != nil {
 				return nil, err
 			}
-			fmt.Fprintf(examples, "example #%d: %s\n\n", i+1, string(buf))
+			fmt.Fprintf(examples, "example #%d in response to prompt %q: %s\n\n", i+1, e.Prompt, string(buf))
 		}
 		messages = append(messages, openai.ChatCompletionMessage{
 			Role:    openai.ChatMessageRoleUser,
@@ -260,7 +269,10 @@ LOOP:
 				})
 				continue LOOP
 			}
-			return &parsedResponse, nil
+			return &Result[ANSWER]{
+				Response: parsedResponse,
+				Messages: messages,
+			}, nil
 		default:
 			return nil, fmt.Errorf("unhandled finish reason: %q", resp.FinishReason)
 		}
