@@ -52,9 +52,9 @@ func Complete(c OpenAI, r CompletionRequest) (*CompletionResponse, error) {
 	var model string
 	switch r.Model {
 	case DefaultModel:
-		model = openai.GPT4TurboPreview
+		model = "gpt-4-turbo-preview"
 	case GPT4Turbo:
-		model = openai.GPT4TurboPreview
+		model = "gpt-4-turbo-preview"
 	case GPT4Vision:
 		model = openai.GPT4VisionPreview
 	default:
