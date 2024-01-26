@@ -2,9 +2,7 @@ package client
 
 import (
 	"context"
-	"fmt"
 	"io"
-	"os"
 	"strings"
 
 	"github.com/sashabaranov/go-openai"
@@ -40,41 +38,4 @@ func (c client) Complete(r CompletionRequest) (*CompletionResponse, error) {
 
 func New(key string) (Interface, error) {
 	return client{openai.NewClient(strings.TrimSpace(key))}, nil
-}
-
-// key via openai env var, or file openai.txt
-func NewDefault() (Interface, error) {
-	key, err := loadKey()
-	if err != nil {
-		return nil, err
-	}
-	return New(key)
-}
-
-func loadKey() (string, error) {
-	const (
-		env  = "openai"
-		file = "openai.txt"
-	)
-	key := os.Getenv(env)
-	if len(key) == 0 {
-		x, err := LoadFile(file)
-		if err != nil {
-			return "", err
-		}
-		key = x
-	}
-	const prefix = "sk-"
-	if !strings.HasPrefix(key, prefix) {
-		return "", fmt.Errorf("openai key should start with %q prefix", prefix)
-	}
-	return key, nil
-}
-
-func LoadFile(file string) (string, error) {
-	buf, err := os.ReadFile(file)
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(buf)), nil
 }

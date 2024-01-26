@@ -34,7 +34,7 @@ func router(mode string) error {
 	default:
 		return fmt.Errorf("unknown mode: %q", mode)
 	}
-	c, err := client.NewDefault()
+	c, err := NewDefault()
 	if err != nil {
 		return err
 	}
@@ -183,4 +183,41 @@ func (s Exp) Compute(p string) (string, error) {
 		return "", err
 	}
 	return fmt.Sprintf("%f", math.Pow(s.Base, s.Power)), nil
+}
+
+// key via openai env var, or file openai.txt
+func NewDefault() (client.Interface, error) {
+	key, err := loadKey()
+	if err != nil {
+		return nil, err
+	}
+	return client.New(key)
+}
+
+func loadKey() (string, error) {
+	const (
+		env  = "openai"
+		file = "openai.txt"
+	)
+	key := os.Getenv(env)
+	if len(key) == 0 {
+		x, err := LoadFile(file)
+		if err != nil {
+			return "", err
+		}
+		key = x
+	}
+	const prefix = "sk-"
+	if !strings.HasPrefix(key, prefix) {
+		return "", fmt.Errorf("openai key should start with %q prefix", prefix)
+	}
+	return key, nil
+}
+
+func LoadFile(file string) (string, error) {
+	buf, err := os.ReadFile(file)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(buf)), nil
 }
