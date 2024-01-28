@@ -70,15 +70,11 @@ func Ask[ANSWER any](c client.Interface, q Question[ANSWER]) (*Response[ANSWER],
 	if firstQuestion {
 		add(openai.ChatCompletionMessage{
 			Role:    openai.ChatMessageRoleSystem,
-			Content: assets.Prompt,
+			Content: assets.Prompt1,
 		})
 		add(openai.ChatCompletionMessage{
-			Role: openai.ChatMessageRoleSystem,
-			Content: `in responding, don't include a formal answer if you're asking questions of the user, 
-			or if there is no update to your official answer at that point in the conversation,
-			or if the question asked can not be answered with the schema for formal answers.
-			definitely don't send over an incorrect formal answer, since that will cause havoc in the user's systems.
-			in case of not supplying a formal answer, your conversational answer will suffice.`,
+			Role:    openai.ChatMessageRoleSystem,
+			Content: assets.Prompt2,
 		})
 	}
 	whichModel := client.GPT4Turbo
