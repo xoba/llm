@@ -1,11 +1,11 @@
 module xoba.com/llm
 
-go 1.22rc1
+go 1.22.0
 
 require (
-	github.com/google/uuid v1.5.0
+	github.com/google/uuid v1.6.0
 	github.com/invopop/jsonschema v0.12.0
-	github.com/sashabaranov/go-openai v1.18.3
+	github.com/sashabaranov/go-openai v1.19.2
 	github.com/vincent-petithory/dataurl v1.0.0
 )
 
