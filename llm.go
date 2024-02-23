@@ -199,7 +199,7 @@ func Ask[ANSWER any](c client.Interface, q Question[ANSWER]) (*Response[ANSWER],
 			}
 			tools = append(tools, openai.Tool{
 				Type:     openai.ToolTypeFunction,
-				Function: def,
+				Function: &def,
 			})
 		}
 		sort.Slice(tools, func(i, j int) bool {
