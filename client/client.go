@@ -2,7 +2,6 @@ package client
 
 import (
 	"context"
-	"io"
 	"strings"
 
 	"github.com/sashabaranov/go-openai"
@@ -21,7 +20,7 @@ type OpenAI interface {
 	CreateImage(context.Context, openai.ImageRequest) (response openai.ImageResponse, err error)
 	CreateTranslation(context.Context, openai.AudioRequest) (openai.AudioResponse, error)
 	CreateEmbeddings(context.Context, openai.EmbeddingRequestConverter) (openai.EmbeddingResponse, error)
-	CreateSpeech(context.Context, openai.CreateSpeechRequest) (io.ReadCloser, error)
+	CreateSpeech(context.Context, openai.CreateSpeechRequest) (openai.RawResponse, error)
 }
 
 type client struct {
