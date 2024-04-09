@@ -32,8 +32,8 @@ type CompletionResponse struct {
 type ResponseFormat int
 
 const (
-	_             ResponseFormat = iota
-	NoneSpecified                // vision preview needs this
+	_ ResponseFormat = iota
+	NoneSpecified
 	JSONResponse
 	TextResponse
 )
@@ -52,11 +52,9 @@ func Complete(c OpenAI, r CompletionRequest) (*CompletionResponse, error) {
 	var model string
 	switch r.Model {
 	case DefaultModel:
-		model = "gpt-4-turbo-preview"
-	case GPT4Turbo:
-		model = "gpt-4-turbo-preview"
-	case GPT4Vision:
-		model = openai.GPT4VisionPreview
+		model = "gpt-4-turbo"
+	case GPT4Turbo, GPT4Vision:
+		model = "gpt-4-turbo-2024-04-09"
 	default:
 		return nil, fmt.Errorf("unknown model: %d", r.Model)
 	}
