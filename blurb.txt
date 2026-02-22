@@ -1,0 +1,1 @@
+Go framework for structured LLM Q&A over files
